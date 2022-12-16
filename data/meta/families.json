@@ -1,0 +1,39 @@
+{
+    "brown": {
+        "house_price": 0.5,
+        "hotel_price": 2.5
+    },
+    "lightblue": {
+        "house_price": 0.5,
+        "hotel_price": 2.5
+    },
+    "pink": {
+        "house_price": 1,
+        "hotel_price": 5
+    },
+    "orange": {
+        "house_price": 1,
+        "hotel_price": 5
+    },
+    "red": {
+        "house_price": 1.5,
+        "hotel_price": 7.5
+    },
+    "yellow": {
+        "house_price": 1.5,
+        "hotel_price": 7.5
+    },
+    "green": {
+        "house_price": 2,
+        "hotel_price": 10
+    },
+    "blue": {
+        "house_price": 2,
+        "hotel_price": 10
+    },
+    "corner": {},
+    "bonus": {},
+    "transport": {},
+    "tax": {},
+    "utility": {}
+}

@@ -1,2 +1,5 @@
 tmp/
 tmp.ipynb
+
+**.pyc
+__pycache__/
