@@ -32,9 +32,3 @@ class Homographer:
         self, method: int = cv2.RANSAC, threshold: float = 5.0
     ) -> tuple[np.ndarray, np.ndarray]:
         return cv2.findHomography(self.dst_pts, self.src_pts, method, threshold)
-
-    def get_perspective_transform(self) -> np.ndarray:
-        return cv2.getPerspectiveTransform(self.src_pts, self.dst_pts)
-
-    def get_inverse_perspective_transform(self) -> np.ndarray:
-        return cv2.getPerspectiveTransform(self.dst_pts, self.src_pts)
