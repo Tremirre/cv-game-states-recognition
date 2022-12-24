@@ -5,16 +5,14 @@ from typing import Iterator
 @dataclass
 class Family:
     name: str
+    house_price: float = -1
+    hotel_price: float = -1
 
-
-@dataclass
-class PropertyFamily(Family):
-    house_price: float
-    hotel_price: float
+    @property
+    def is_upgradeable(self) -> bool:
+        return self.house_price > 0 and self.hotel_price > 0
 
 
 def deserialize_families(serialized_families: dict) -> Iterator[Family]:
     for name, data in serialized_families.items():
-        if "hotel_price" in data:
-            yield PropertyFamily(name=name, **data)
-        yield Family(name=name)
+        yield Family(name=name, **data)

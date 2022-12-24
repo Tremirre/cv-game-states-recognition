@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterator
 
 from .family import Family
@@ -11,25 +11,30 @@ class Field:
     family: Family
     placement: str
     index: int
+    price: float = -1
+    rent: list[float] = field(default_factory=list)
+    current_level: int = 0
+    mortgage: float = -1
 
+    @property
+    def is_payable(self) -> bool:
+        return self.price > 0
 
-@dataclass
-class PricedField(Field):
-    price: float
+    @property
+    def is_rentable(self) -> bool:
+        return self.mortgage > 0
 
+    @property
+    def upgrade_cost(self) -> float:
+        if not self.family.is_upgradeable:
+            return -1
+        if self.current_level == 4:
+            return self.family.hotel_price
+        return self.family.house_price
 
-@dataclass
-class RentableField(PricedField):
-    rent: list[float]
-    mortgage: float
-
-
-def create_field(**kwargs) -> Field:
-    if "rent" in kwargs:
-        return RentableField(**kwargs)
-    if "price" in kwargs:
-        return PricedField(**kwargs)
-    return Field(**kwargs)
+    @property
+    def get_rent_price(self) -> float:
+        return self.rent[self.current_level]
 
 
 def deserialize_fields(
@@ -46,7 +51,7 @@ def deserialize_fields(
     for section in ["top", "bottom", "left", "right"]:
         for field_index, field_data in enumerate(serialized_fields[section]):
             field_family = field_data["family"]
-            yield create_field(
+            yield Field(
                 **{
                     **field_data,
                     "family": families[field_family],
@@ -70,3 +75,13 @@ class FieldIndex:
 
     def get_by_place(self, placement: str, index: int = 0) -> Field | None:
         return self.fields_by_place.get((placement, index))
+
+    def get_by_name(self, name: str) -> Field | None:
+        for field in self.fields:
+            if field.name == name:
+                return field
+        return None
+
+    @property
+    def size(self) -> int:
+        return len(self.fields)
