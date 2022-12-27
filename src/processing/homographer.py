@@ -5,7 +5,9 @@ import numpy as np
 def coords_from_keypoints_matches(
     keypoints: list[cv2.KeyPoint], indexes: list[int]
 ) -> np.ndarray:
-    return np.float32([keypoints[index].pt for index in indexes]).reshape(-1, 1, 2)
+    return np.float32(
+        [keypoints[index].pt for index in indexes if keypoints[index]]  # type: ignore
+    ).reshape(-1, 1, 2)
 
 
 class Homographer:
