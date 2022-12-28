@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from time import perf_counter
 from typing import Protocol
 
 
@@ -8,7 +9,7 @@ class FrameProcessor(Protocol):
     def on_start(self) -> None:
         ...
 
-    def process_frame(self, frame: np.ndarray) -> bool:
+    def process_frame(self, frame: np.ndarray, context: dict) -> bool:
         ...
 
     def on_finish(self) -> None:
@@ -44,6 +45,10 @@ class VideoHandler:
     def __exit__(self, exc_type, exc_value, traceback):
         self.capture.release()
 
+    @property
+    def video_name(self) -> str:
+        return self.path_to_video.split("/")[-1].split(".")[0]
+
     def get_frame(self, frame_number: int) -> np.ndarray:
         if frame_number < 0:
             raise ValueError("Frame number must be positive")
@@ -58,13 +63,23 @@ class VideoHandler:
         return self.get_frame(frame_number)
 
     def go_through_video(
-        self, frame_processor: FrameProcessor, frame_analyzers: list[FrameAnalyzer]
+        self,
+        frame_processor: FrameProcessor,
+        frame_analyzers: list[FrameAnalyzer],
+        additional_context: dict | None = None,
     ) -> None:
+        if additional_context is None:
+            additional_context = {}
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
         frame_processor.on_start()
-        context = {"frame_number": 0}
+        context = {
+            "video_name": self.video_name,
+            "frame_number": 0,
+            **additional_context,
+        }
         try:
             while True:
+                time_start = perf_counter()
                 ret, frame = self.capture.read()
                 if not ret:
                     break
@@ -73,9 +88,13 @@ class VideoHandler:
                     context.update(analyzer.get_context())
                 for analyzer in frame_analyzers:
                     frame = analyzer.mutate_frame(frame)
-                continue_processing = frame_processor.process_frame(frame)
+                continue_processing = frame_processor.process_frame(frame, context)
+                print(context)
                 if not continue_processing:
                     break
                 context["frame_number"] += 1
+                time_end = perf_counter()
+                time_delta = time_end - time_start
+                context["fps"] = 1 / time_delta
         finally:
             frame_processor.on_finish()

@@ -12,12 +12,22 @@ class LiveFrameProcessor:
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(self.window_name, self.width, self.height)
 
-    def process_frame(self, frame: np.ndarray) -> bool:
+    def process_frame(self, frame: np.ndarray, context: dict) -> bool:
+        if not cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE):
+            return False
         cv2.imshow(self.window_name, frame)
-        return cv2.waitKey(3) != ord("q")
+        key = cv2.waitKey(3)
+        if key == ord("q"):
+            return False
+        if key == ord("s"):
+            video_name = context["video_name"]
+            frame_number = context["frame_number"]
+            cv2.imwrite(f"{video_name}_{frame_number}.jpg", frame)
+        return True
 
     def on_finish(self) -> None:
-        cv2.destroyWindow(self.window_name)
+        if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE):
+            cv2.destroyWindow(self.window_name)
 
 
 class SaverFrameProcessor:

@@ -94,9 +94,21 @@ class DiceAnalyzer(ThreadableAnalyzer):
         self.img_transformer = img_transformer
         super().__init__(threaded)
 
-    def analyze_job(self, frame: np.ndarray, **kwargs) -> None:
+    def analyze_job(
+        self,
+        frame: np.ndarray,
+        dice_area_rect: tuple[int, int, int, int] | None = None,
+        **kwargs
+    ) -> None:
         transformed_frame = self.img_transformer(frame)
         self.keypoints = self.blob_detector.detect(transformed_frame)
+        if dice_area_rect is not None:
+            self.keypoints = [
+                kp
+                for kp in self.keypoints
+                if dice_area_rect[0] <= kp.pt[0] <= dice_area_rect[2]
+                and dice_area_rect[1] <= kp.pt[1] <= dice_area_rect[3]
+            ]
 
     def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
         return cv2.drawKeypoints(
