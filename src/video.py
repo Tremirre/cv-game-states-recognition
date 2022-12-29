@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from time import perf_counter
-from typing import Protocol
+from typing import Protocol, Callable
 
 
 class FrameProcessor(Protocol):
@@ -67,6 +67,7 @@ class VideoHandler:
         frame_processor: FrameProcessor,
         frame_analyzers: list[FrameAnalyzer],
         additional_context: dict | None = None,
+        context_processor: Callable = lambda x: x,
     ) -> None:
         if additional_context is None:
             additional_context = {}
@@ -89,12 +90,12 @@ class VideoHandler:
                 for analyzer in frame_analyzers:
                     frame = analyzer.mutate_frame(frame)
                 continue_processing = frame_processor.process_frame(frame, context)
-                print(context)
                 if not continue_processing:
                     break
                 context["frame_number"] += 1
                 time_end = perf_counter()
                 time_delta = time_end - time_start
                 context["fps"] = 1 / time_delta
+                context_processor(context)
         finally:
             frame_processor.on_finish()

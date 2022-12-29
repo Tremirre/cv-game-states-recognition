@@ -6,7 +6,8 @@ import numpy as np
 
 from typing import Callable
 
-from .calc import calculate_similarity, get_normalized_image
+from .calc import calculate_similarity, get_normalized_image, is_inside_bounding_rect
+from .features import get_rect_around_point, get_clear_inverted_edges
 
 
 class Analyzer(abc.ABC):
@@ -106,8 +107,7 @@ class DiceAnalyzer(ThreadableAnalyzer):
             self.keypoints = [
                 kp
                 for kp in self.keypoints
-                if dice_area_rect[0] <= kp.pt[0] <= dice_area_rect[2]
-                and dice_area_rect[1] <= kp.pt[1] <= dice_area_rect[3]
+                if is_inside_bounding_rect(kp.pt, dice_area_rect)
             ]
 
     def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
@@ -145,3 +145,106 @@ class CardsAnalyzer(ThreadableAnalyzer):
 
     def get_context(self) -> dict:
         return {"cards": len(self.contours)}
+
+
+class BlackPieceAnalyzer(ThreadableAnalyzer):
+    def __init__(self, threaded: bool = False) -> None:
+        super().__init__(threaded=threaded)
+        self.circles = []
+        self.black_piece_pos = None
+
+    def analyze_job(
+        self, frame: np.ndarray, board_points: np.ndarray | None = None, **kwargs
+    ) -> None:
+        frame_gs = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        circles = cv2.HoughCircles(
+            frame_gs,
+            cv2.HOUGH_GRADIENT,
+            1,
+            20,
+            param1=40,
+            param2=40,
+            minRadius=27,
+            maxRadius=50,
+        )
+        circles = np.uint16(np.around(circles))[0].tolist()
+        if board_points is not None:
+            circles = [
+                circle
+                for circle in circles
+                if cv2.pointPolygonTest(board_points, circle[:2], False) > 0
+            ]
+        circles_with_color = [
+            (circle, get_rect_around_point(circle[:2], frame_gs, 40, 40).mean())
+            for circle in circles
+        ]
+        circles_with_color = [
+            (circle, color) for circle, color in circles_with_color if 10 < color < 80
+        ]
+        if not circles_with_color:
+            return
+        circles_with_color = sorted(
+            circles_with_color, key=lambda circle_with_color: circle_with_color[1]
+        )
+        circles = list(zip(*circles_with_color))[0]
+        self.circles = circles
+        self.black_piece_pos = (int(circles[0][0]), int(circles[0][1]))
+
+    def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
+        if self.black_piece_pos is not None:
+            frame = cv2.drawMarker(
+                frame, self.black_piece_pos, (255, 0, 0), cv2.MARKER_CROSS, 20, 2
+            )
+        return frame
+
+    def get_context(self) -> dict:
+        return {
+            "black_pos": self.black_piece_pos,
+        }
+
+
+class WhitePieceAnalyzer(ThreadableAnalyzer):
+    def __init__(
+        self, piece_detector: cv2.SimpleBlobDetector, threaded: bool = False
+    ) -> None:
+        super().__init__(threaded=threaded)
+        self.piece_detector = piece_detector
+        self.white_piece_pos = None
+        self.keypoints = []
+
+    def analyze_job(
+        self, frame: np.ndarray, board_points: np.ndarray | None = None, **kwargs
+    ) -> None:
+        edges = get_clear_inverted_edges(frame)
+        keypoints = self.piece_detector.detect(edges)
+        if board_points is not None:
+            keypoints = [
+                kp
+                for kp in keypoints
+                if cv2.pointPolygonTest(board_points, kp.pt, False) > 0
+            ]
+        if not keypoints:
+            return
+        keypoints_with_color = [
+            (kp, get_rect_around_point(kp.pt, frame, 60, 60).mean()) for kp in keypoints
+        ]
+        keypoints_with_color = [kp for kp in keypoints_with_color if kp[1] > 180]
+        if not keypoints_with_color:
+            return
+        keypoints_with_color = sorted(
+            keypoints_with_color, key=lambda kp: kp[1], reverse=True
+        )
+        keypoints = list(zip(*keypoints_with_color))[0]
+        self.white_piece_pos = (int(keypoints[0].pt[0]), int(keypoints[0].pt[1]))
+
+    def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
+        if self.white_piece_pos is not None:
+            frame = cv2.drawMarker(
+                frame, self.white_piece_pos, (0, 0, 255), cv2.MARKER_CROSS, 20, 2
+            )
+        return frame
+
+    def get_context(self) -> dict:
+        return {
+            "white_pos": self.white_piece_pos,
+        }

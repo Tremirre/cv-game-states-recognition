@@ -9,6 +9,13 @@ def get_clear_edges(image: np.ndarray) -> np.ndarray:
     return cv2.dilate(image_edges, np.ones((3, 3), np.uint8), iterations=1)
 
 
+def get_clear_inverted_edges(img: np.ndarray) -> np.ndarray:
+    edges = cv2.Canny(img, 60, 100)
+    edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
+    edges = cv2.bitwise_not(edges)
+    return cv2.erode(edges, np.ones((3, 3), np.uint8), iterations=6)
+
+
 def get_contours(edge_image: np.ndarray) -> list[np.ndarray]:
     contours, _ = cv2.findContours(
         edge_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
@@ -35,14 +42,60 @@ def get_image_fragment_by_rect(
     return image[y : y + h, x : x + w]
 
 
-def find_dice_throwing_area(image: np.ndarray) -> tuple[int, int, int, int] | None:
+def find_dice_throwing_rect(image: np.ndarray) -> tuple[int, int, int, int] | None:
     edge_image = get_clear_edges(image)
     contours = get_contours(edge_image)
     contour_bounding_rects = [cv2.boundingRect(c) for c in contours]
     contour_bounding_rects = [
         r for r in contour_bounding_rects if 100000 < r[2] * r[3] < 200000
     ]
-    sorted_bounding_rects = sorted(contour_bounding_rects, key=lambda r: get_image_fragment_by_rect(image, r).std())
+    sorted_bounding_rects = sorted(
+        contour_bounding_rects, key=lambda r: get_image_fragment_by_rect(image, r).std()
+    )
     if not sorted_bounding_rects:
         return None
     return sorted_bounding_rects[0]
+
+
+def get_board_rect_from_homography(
+    board_to_image_homography: np.ndarray, board_image: np.ndarray
+) -> tuple[int, int, int, int]:
+    full_rect = cv2.boundingRect(cv2.cvtColor(board_image, cv2.COLOR_BGR2GRAY))
+    box_points = np.array(
+        [
+            [full_rect[0], full_rect[1]],
+            [full_rect[0] + full_rect[2], full_rect[1]],
+            [full_rect[0] + full_rect[2], full_rect[1] + full_rect[3]],
+            [full_rect[0], full_rect[1] + full_rect[3]],
+        ]
+    )
+    transformed = cv2.perspectiveTransform(
+        box_points.reshape(-1, 1, 2).astype(np.float32), board_to_image_homography
+    )
+    return cv2.boundingRect(transformed)
+
+
+def get_board_min_rect_from_homography(
+    board_to_image_homography: np.ndarray, board_image: np.ndarray
+) -> tuple[int, int, int, int]:
+    full_rect = cv2.boundingRect(cv2.cvtColor(board_image, cv2.COLOR_BGR2GRAY))
+    box_points = np.array(
+        [
+            [full_rect[0], full_rect[1]],
+            [full_rect[0] + full_rect[2], full_rect[1]],
+            [full_rect[0] + full_rect[2], full_rect[1] + full_rect[3]],
+            [full_rect[0], full_rect[1] + full_rect[3]],
+        ]
+    )
+    transformed = cv2.perspectiveTransform(
+        box_points.reshape(-1, 1, 2).astype(np.float32), board_to_image_homography
+    )
+    return cv2.minAreaRect(transformed)
+
+
+def get_rect_around_point(
+    point: tuple[int, int], image: np.ndarray, width: int, height: int
+) -> np.ndarray:
+    x, y = point
+    rect = (int(x) - width // 2, int(y) - height // 2, width, height)
+    return get_image_fragment_by_rect(image, rect)
