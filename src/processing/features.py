@@ -59,8 +59,10 @@ def get_image_fragment_by_rect(
     return image[y : y + h, x : x + w]
 
 
-def find_dice_throwing_rect(image: np.ndarray) -> tuple[int, int, int, int] | None:
-    edge_image = get_clear_edges(image)
+def find_dice_throwing_rect(
+    image: np.ndarray, c1: int = 70, c2: int = 250
+) -> tuple[int, int, int, int] | None:
+    edge_image = get_clear_edges(image, c1, c2)
     contours = get_contours(edge_image)
     contour_bounding_rects = [cv2.boundingRect(c) for c in contours]
     contour_bounding_rects = [
