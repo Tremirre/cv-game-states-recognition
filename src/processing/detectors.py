@@ -4,7 +4,7 @@ import cv2
 def get_dots_detector() -> cv2.SimpleBlobDetector:
     params = cv2.SimpleBlobDetector_Params()
     params.filterByArea = True
-    params.minArea = 40
+    params.minArea = 30
     params.maxArea = 120
     params.filterByCircularity = True
     params.minCircularity = 0.8

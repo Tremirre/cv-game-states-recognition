@@ -33,19 +33,19 @@ class BoardMapper:
         ):
             return "inside", 0
         field_x = int((x - self.tile_height) / self.tile_width)
-        field_y = int((y - self.tile_width) / self.tile_height)
+        field_y = int((y - self.tile_height) / self.tile_width)
 
         if x < self.tile_height:
-            if y < self.tile_width:
+            if y < self.tile_height:
                 return "top_left", 0
-            if y > self.board_length - self.tile_width:
+            if y > self.board_length - self.tile_height:
                 return "bottom_left", 0
             return "left", field_y
 
-        if x > self.board_length - self.tile_width:
-            if y < self.tile_width:
+        if x > self.board_length - self.tile_height:
+            if y < self.tile_height:
                 return "top_right", 0
-            if y > self.board_length - self.tile_width:
+            if y > self.board_length - self.tile_height:
                 return "bottom_right", 0
             return "right", field_y
 
