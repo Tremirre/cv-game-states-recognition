@@ -10,7 +10,7 @@ Andrzej Kajdasz 148273
 
 For our project we decided to go with **Monopoly**
 
-![image.png](attachment:image.png)
+![board](data/images/board.jpg)
 
 ### Brief Description
 
@@ -44,6 +44,11 @@ Since Monopoly is a complex game we had to simplify some of its parts to make th
 - player passes through GO 
 - player pays Income Tax
 - player pays Super Tax
+
+### Link to dataset:
+
+https://drive.google.com/drive/folders/1HA0QrZlcn5DyrJS5MQkbRNPFyX1x3uxm?usp=share_link
+
 
 ### Sample pictures:
 
