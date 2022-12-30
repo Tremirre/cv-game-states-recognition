@@ -46,11 +46,12 @@ def get_white_piece_detector():
 def get_black_piece_detector():
     params = cv2.SimpleBlobDetector_Params()
     params.filterByArea = True
-    params.minArea = 1000
+    params.minArea = 1200
     params.filterByCircularity = True
-    params.minCircularity = 0.3
+    params.minCircularity = 0.2
     params.filterByConvexity = True
-    params.minConvexity = 0.2
-    params.filterByInertia = False
+    params.minConvexity = 0.3
+    params.filterByInertia = True
+    params.minInertiaRatio = 0.2
     params.filterByColor = False
     return cv2.SimpleBlobDetector_create(params)
