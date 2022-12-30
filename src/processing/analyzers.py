@@ -4,7 +4,7 @@ import threading
 import cv2
 import numpy as np
 
-from typing import Callable
+from typing import Callable, Any
 
 from .calc import (
     calculate_similarity,
@@ -13,6 +13,8 @@ from .calc import (
     get_mid_point_from_rect_points,
 )
 from .features import get_rect_around_point, get_clear_inverted_edges
+from .context import ContextReader
+from .events import EventDetector
 
 
 class Analyzer(abc.ABC):
@@ -106,7 +108,7 @@ class DotsAnalyzer(ThreadableAnalyzer):
         frame: np.ndarray,
         dice_area_rect: tuple[int, int, int, int] | None = None,
         board_points: np.ndarray | None = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         dice_keypoints = []
         card_keypoints = []
@@ -293,7 +295,7 @@ class BlackPieceAnalyzer(ThreadableAnalyzer):
     def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
         if self.black_piece_pos is not None:
             frame = cv2.drawMarker(
-                frame, self.black_piece_pos, (255, 0, 0), cv2.MARKER_CROSS, 20, 2
+                frame, self.black_piece_pos, (200, 140, 255), cv2.MARKER_CROSS, 20, 2
             )
         return frame
 
@@ -351,3 +353,104 @@ class WhitePieceAnalyzer(ThreadableAnalyzer):
         return {
             "white_pos": self.white_piece_pos,
         }
+
+
+class EventsAnalyzer(Analyzer):
+    def __init__(
+        self, context_readers: list[ContextReader], event_detectors: list[EventDetector]
+    ):
+        self.context_readers = context_readers
+        self.event_detectors = event_detectors
+        self.stat_font = cv2.FONT_HERSHEY_COMPLEX_SMALL
+        self.message_font = cv2.FONT_HERSHEY_COMPLEX_SMALL
+        self.message_lifetime = 200
+        self.messages = []
+
+    def analyze_raw(self, frame: np.ndarray, **context: dict) -> None:
+        filtered_messages = []
+        for message, frame_number in self.messages:
+            if frame_number + self.message_lifetime > context["frame_number"]:
+                filtered_messages.append((message, frame_number))
+        self.messages = filtered_messages
+        for event_context_reader in self.context_readers:
+            event_context_reader.read(context)
+        for event_detector in self.event_detectors:
+            if event_detector.detect():
+                self.messages.append(
+                    (event_detector.get_message(), context["frame_number"])
+                )
+
+    def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
+        frame = cv2.rectangle(
+            frame,
+            (frame.shape[1] - 400, frame.shape[0] - 500),
+            (frame.shape[1], frame.shape[0]),
+            (0, 0, 0),
+            -1,
+        )
+        for i, event_context_reader in enumerate(self.context_readers):
+            cv2.putText(
+                frame,
+                f"{event_context_reader.name}: {event_context_reader.get_value()}",
+                (frame.shape[1] - 350, frame.shape[0] - 450 + 50 * i),
+                self.stat_font,
+                1,
+                (255, 255, 255),
+                2,
+            )
+        for i, (message, frame_number) in enumerate(self.messages):
+            cv2.putText(
+                frame,
+                message,
+                (20, frame.shape[0] // 2 - 200 + 50 * (i + len(self.context_readers))),
+                self.message_font,
+                1,
+                (0, 0, 0),
+                7,
+            )
+            cv2.putText(
+                frame,
+                message,
+                (20, frame.shape[0] // 2 - 200 + 50 * (i + len(self.context_readers))),
+                self.message_font,
+                1,
+                (255, 255, 255),
+                2,
+            )
+        return frame
+
+
+class RectDrawingEntry:
+    def __init__(self, name: str, color: tuple[int, int, int]) -> None:
+        self.name = name
+        self.color = color
+        self.rect: Any = None
+
+    def draw_rect(self, frame: np.ndarray) -> np.ndarray:
+        if self.rect is None:
+            return frame
+
+        x, y, w, h = self.rect
+        return cv2.rectangle(frame, (x, y), (x + w, y + h), self.color, 2)
+
+
+class PointsDrawingEntry(RectDrawingEntry):
+    def draw_rect(self, frame: np.ndarray) -> np.ndarray:
+        if self.rect is None:
+            return frame
+
+        return cv2.polylines(frame, [np.int32(self.rect)], True, self.color, 2)
+
+
+class RectDrawingAnalyzer(Analyzer):
+    def __init__(self, drawing_entries: list[RectDrawingEntry]) -> None:
+        self.drawing_entries = drawing_entries
+
+    def analyze_raw(self, frame: np.ndarray, **kwargs) -> None:
+        for entry in self.drawing_entries:
+            entry.rect = kwargs.get(entry.name)
+
+    def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
+        for entry in self.drawing_entries:
+            frame = entry.draw_rect(frame)
+        return frame
