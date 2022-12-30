@@ -80,6 +80,7 @@ class MoveEventDetector(EventDetector):
         super().__init__(tracked_readers)
         self.player = player
         self.last_position = None
+        self.went_through_start = False
 
     def detect(self) -> bool:
         position = self.tracked_readers[f"{self.player}_pos"].get_value()
@@ -88,6 +89,7 @@ class MoveEventDetector(EventDetector):
             return False
         if position != self.last_position:
             self.last_position = position
+            self.went_through_start = self.last_position > position
             return True
         return False
 
@@ -104,4 +106,6 @@ class MoveEventDetector(EventDetector):
             msg += f" - {self.player.capitalize()} pays income tax"
         elif self.last_position == "Super Tax":
             msg += f" - {self.player.capitalize()} pays super tax"
+        if self.went_through_start:
+            msg += f" - {self.player.capitalize()} passed Go"
         return msg
