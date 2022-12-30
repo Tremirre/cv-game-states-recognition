@@ -258,11 +258,13 @@ class BlackPieceAnalyzer(ThreadableAnalyzer):
         self,
         piece_detector: cv2.SimpleBlobDetector,
         binarizer: Callable[[np.ndarray], np.ndarray],
+        color_upper_threshold: int = 70,
         threaded: bool = False,
     ) -> None:
         super().__init__(threaded=threaded)
         self.binarizer = binarizer
         self.piece_detector = piece_detector
+        self.color_upper_threshold = color_upper_threshold
         self.black_piece_pos = None
 
     def analyze_job(
@@ -285,7 +287,9 @@ class BlackPieceAnalyzer(ThreadableAnalyzer):
         keypoints_with_color = [
             (kp, get_rect_around_point(kp.pt, frame, 60, 60).mean()) for kp in keypoints
         ]
-        keypoints_with_color = [kp for kp in keypoints_with_color if 20 < kp[1] < 70]
+        keypoints_with_color = [
+            kp for kp in keypoints_with_color if 20 < kp[1] < self.color_upper_threshold
+        ]
         if not keypoints_with_color:
             return
         keypoints_with_color = sorted(keypoints_with_color, key=lambda kp: kp[1])
@@ -310,11 +314,13 @@ class WhitePieceAnalyzer(ThreadableAnalyzer):
         self,
         piece_detector: cv2.SimpleBlobDetector,
         binarizer: Callable[[np.ndarray], np.ndarray],
+        color_lower_threshold: int = 180,
         threaded: bool = False,
     ) -> None:
         super().__init__(threaded=threaded)
         self.piece_detector = piece_detector
         self.binarizer = binarizer
+        self.color_lower_threshold = color_lower_threshold
         self.white_piece_pos = None
 
     def analyze_job(
@@ -333,7 +339,7 @@ class WhitePieceAnalyzer(ThreadableAnalyzer):
         keypoints_with_color = [
             (kp, get_rect_around_point(kp.pt, frame, 60, 60).mean()) for kp in keypoints
         ]
-        keypoints_with_color = [kp for kp in keypoints_with_color if kp[1] > 180]
+        keypoints_with_color = [kp for kp in keypoints_with_color if kp[1] > 170]
         if not keypoints_with_color:
             return
         keypoints_with_color = sorted(
