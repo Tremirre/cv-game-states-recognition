@@ -100,4 +100,8 @@ class MoveEventDetector(EventDetector):
             msg += f" - {self.player.capitalize()} draws a community chest card"
         elif self.last_position == "Chance":
             msg += f" - {self.player.capitalize()} draws a chance card"
+        elif self.last_position == "Income Tax":
+            msg += f" - {self.player.capitalize()} pays income tax"
+        elif self.last_position == "Super Tax":
+            msg += f" - {self.player.capitalize()} pays super tax"
         return msg
