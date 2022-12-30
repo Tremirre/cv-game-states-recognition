@@ -12,12 +12,15 @@ def get_clear_edges(
 
 
 def get_clear_inverted_edges(
-    image: np.ndarray, cannny_threshold_1: float = 60, cannny_threshold_2: float = 100
+    image: np.ndarray,
+    cannny_threshold_1: float = 60,
+    cannny_threshold_2: float = 100,
+    erosion_count: int = 2,
 ) -> np.ndarray:
     edges = cv2.Canny(image, cannny_threshold_1, cannny_threshold_2)
     edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
     edges = cv2.bitwise_not(edges)
-    return cv2.erode(edges, np.ones((3, 3), np.uint8), iterations=6)
+    return cv2.erode(edges, np.ones((3, 3), np.uint8), iterations=erosion_count)
 
 
 def get_threshold_edges(img: np.ndarray) -> np.ndarray:

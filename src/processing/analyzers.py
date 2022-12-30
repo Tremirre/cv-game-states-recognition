@@ -6,7 +6,12 @@ import numpy as np
 
 from typing import Callable
 
-from .calc import calculate_similarity, get_normalized_image, is_inside_bounding_rect
+from .calc import (
+    calculate_similarity,
+    get_normalized_image,
+    is_inside_bounding_rect,
+    get_mid_point_from_rect_points,
+)
 from .features import get_rect_around_point, get_clear_inverted_edges
 
 
@@ -190,7 +195,7 @@ class CardsAnalyzer(ThreadableAnalyzer):
         return {"cards": len(self.bounding_rects)}
 
 
-class BlackPieceAnalyzer(ThreadableAnalyzer):
+class BlackPieceAnalyzerCircleMethod(ThreadableAnalyzer):
     def __init__(self, threaded: bool = False) -> None:
         super().__init__(threaded=threaded)
         self.circles = []
@@ -246,20 +251,72 @@ class BlackPieceAnalyzer(ThreadableAnalyzer):
         }
 
 
-class WhitePieceAnalyzer(ThreadableAnalyzer):
+class BlackPieceAnalyzer(ThreadableAnalyzer):
     def __init__(
-        self, piece_detector: cv2.SimpleBlobDetector, threaded: bool = False
+        self,
+        piece_detector: cv2.SimpleBlobDetector,
+        binarizer: Callable[[np.ndarray], np.ndarray],
+        threaded: bool = False,
     ) -> None:
         super().__init__(threaded=threaded)
+        self.binarizer = binarizer
         self.piece_detector = piece_detector
-        self.white_piece_pos = None
-        self.keypoints = []
+        self.black_piece_pos = None
 
     def analyze_job(
         self, frame: np.ndarray, board_points: np.ndarray | None = None, **kwargs
     ) -> None:
-        edges = get_clear_inverted_edges(frame)
-        keypoints = self.piece_detector.detect(edges)
+        frame_bin = self.binarizer(frame)
+        keypoints = self.piece_detector.detect(frame_bin)
+        if board_points is not None:
+            keypoints = [
+                kp
+                for kp in keypoints
+                if cv2.pointPolygonTest(board_points, kp.pt, False) > 0
+            ]
+            midpoint = get_mid_point_from_rect_points(board_points)
+            scaled = np.int32((board_points - midpoint) * 0.66 + midpoint)
+            keypoints = [
+                kp for kp in keypoints if cv2.pointPolygonTest(scaled, kp.pt, False) < 0
+            ]
+        self.all_keypoints = keypoints
+        keypoints_with_color = [
+            (kp, get_rect_around_point(kp.pt, frame, 60, 60).mean()) for kp in keypoints
+        ]
+        keypoints_with_color = [kp for kp in keypoints_with_color if 20 < kp[1] < 70]
+        if not keypoints_with_color:
+            return
+        keypoints_with_color = sorted(keypoints_with_color, key=lambda kp: kp[1])
+        keypoints = list(zip(*keypoints_with_color))[0]
+        self.black_piece_pos = (int(keypoints[0].pt[0]), int(keypoints[0].pt[1]))
+
+    def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
+        if self.black_piece_pos is not None:
+            frame = cv2.drawMarker(
+                frame, self.black_piece_pos, (255, 0, 0), cv2.MARKER_CROSS, 20, 2
+            )
+        return frame
+
+    def get_context(self) -> dict:
+        return {
+            "black_pos": self.black_piece_pos,
+        }
+
+
+class WhitePieceAnalyzer(ThreadableAnalyzer):
+    def __init__(
+        self, piece_detector: cv2.SimpleBlobDetector, binarizer: Callable[[np.ndarray], np.ndarray], threaded: bool = False
+    ) -> None:
+        super().__init__(threaded=threaded)
+        self.piece_detector = piece_detector
+        self.binarizer = binarizer
+        self.white_piece_pos = None
+
+    def analyze_job(
+        self, frame: np.ndarray, board_points: np.ndarray | None = None, **kwargs
+    ) -> None:
+        frame_bin = self.binarizer(frame)
+        keypoints = self.piece_detector.detect(frame_bin)
         if board_points is not None:
             keypoints = [
                 kp

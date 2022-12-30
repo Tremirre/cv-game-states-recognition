@@ -52,3 +52,9 @@ def is_min_area_in_bounds_and_good_edges_ratio(
         is_min_area_rect_in_bounds(min_rect, area_low, area_high)
         and abs(actual_ratio - ratio) < 0.15
     )
+
+
+def get_mid_point_from_rect_points(points: np.ndarray) -> tuple[int, int]:
+    mid_x = int(np.max(points[:, 0]) + np.min(points[:, 0])) // 2
+    mid_y = int(np.max(points[:, 1]) + np.min(points[:, 1])) // 2
+    return mid_x, mid_y
