@@ -192,7 +192,7 @@ class CardsAnalyzer(ThreadableAnalyzer):
         return frame
 
     def get_context(self) -> dict:
-        return {"cards": len(self.bounding_rects)}
+        return {"cards": self.bounding_rects}
 
 
 class BlackPieceAnalyzerCircleMethod(ThreadableAnalyzer):
@@ -305,7 +305,10 @@ class BlackPieceAnalyzer(ThreadableAnalyzer):
 
 class WhitePieceAnalyzer(ThreadableAnalyzer):
     def __init__(
-        self, piece_detector: cv2.SimpleBlobDetector, binarizer: Callable[[np.ndarray], np.ndarray], threaded: bool = False
+        self,
+        piece_detector: cv2.SimpleBlobDetector,
+        binarizer: Callable[[np.ndarray], np.ndarray],
+        threaded: bool = False,
     ) -> None:
         super().__init__(threaded=threaded)
         self.piece_detector = piece_detector
