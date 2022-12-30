@@ -26,3 +26,29 @@ def is_inside_bounding_rect(
 ) -> bool:
     x, y, w, h = rect
     return x <= point[0] <= x + w and y <= point[1] <= y + h
+
+
+def is_min_area_rect_in_bounds(
+    min_area_rect: tuple[tuple[float, float], tuple[float, float], float],
+    area_low: int,
+    area_high: int,
+) -> bool:
+    width = min_area_rect[1][0]
+    height = min_area_rect[1][1]
+    area = width * height
+    return area_low < area < area_high
+
+
+def is_min_area_in_bounds_and_good_edges_ratio(
+    contour: np.ndarray, area_low: int, area_high: int, ratio: float
+) -> bool:
+    min_rect = cv2.minAreaRect(contour)
+    width = min_rect[1][0]
+    height = min_rect[1][1]
+    if width == 0 or height == 0:
+        return False
+    actual_ratio = max(width, height) / min(width, height)
+    return (
+        is_min_area_rect_in_bounds(min_rect, area_low, area_high)
+        and abs(actual_ratio - ratio) < 0.15
+    )

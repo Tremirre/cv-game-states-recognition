@@ -2,18 +2,32 @@ import cv2
 import numpy as np
 
 
-def get_clear_edges(image: np.ndarray) -> np.ndarray:
+def get_clear_edges(
+    image: np.ndarray, cannny_threshold_1: float = 70, cannny_threshold_2: float = 250
+) -> np.ndarray:
     image_gs = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     image_gs_blur = cv2.GaussianBlur(image_gs, (5, 5), 0)
-    image_edges = cv2.Canny(image_gs_blur, 70, 250)
+    image_edges = cv2.Canny(image_gs_blur, cannny_threshold_1, cannny_threshold_2)
     return cv2.dilate(image_edges, np.ones((3, 3), np.uint8), iterations=1)
 
 
-def get_clear_inverted_edges(img: np.ndarray) -> np.ndarray:
-    edges = cv2.Canny(img, 60, 100)
+def get_clear_inverted_edges(
+    image: np.ndarray, cannny_threshold_1: float = 60, cannny_threshold_2: float = 100
+) -> np.ndarray:
+    edges = cv2.Canny(image, cannny_threshold_1, cannny_threshold_2)
     edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
     edges = cv2.bitwise_not(edges)
     return cv2.erode(edges, np.ones((3, 3), np.uint8), iterations=6)
+
+
+def get_threshold_edges(img: np.ndarray) -> np.ndarray:
+    img_gs = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img_gs_blur = cv2.GaussianBlur(img_gs, (5, 5), 0)
+    thresholded = cv2.adaptiveThreshold(
+        img_gs_blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2
+    )
+    thresholded = cv2.erode(thresholded, kernel=np.ones((3, 3), np.uint8), iterations=1)
+    return thresholded
 
 
 def get_contours(edge_image: np.ndarray) -> list[np.ndarray]:

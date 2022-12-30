@@ -83,14 +83,15 @@ class SimilarityAnalyzer(Analyzer):
         )
 
 
-class DiceAnalyzer(ThreadableAnalyzer):
+class DotsAnalyzer(ThreadableAnalyzer):
     def __init__(
         self,
         blob_detector: cv2.SimpleBlobDetector,
-        img_transformer: Callable[[np.ndarray], np.ndarray] = lambda x: x,
+        img_transformer=lambda x: x,
         threaded: bool = False,
     ) -> None:
-        self.keypoints = []
+        self.dice_keypoints = []
+        self.card_keypoints = []
         self.blob_detector = blob_detector
         self.img_transformer = img_transformer
         super().__init__(threaded)
@@ -99,28 +100,52 @@ class DiceAnalyzer(ThreadableAnalyzer):
         self,
         frame: np.ndarray,
         dice_area_rect: tuple[int, int, int, int] | None = None,
+        board_points: np.ndarray | None = None,
         **kwargs
     ) -> None:
+        dice_keypoints = []
+        card_keypoints = []
         transformed_frame = self.img_transformer(frame)
-        self.keypoints = self.blob_detector.detect(transformed_frame)
-        if dice_area_rect is not None:
-            self.keypoints = [
+        keypoints = self.blob_detector.detect(transformed_frame)
+        for kp in keypoints:
+            if dice_area_rect is not None:
+                if is_inside_bounding_rect(kp.pt, dice_area_rect):
+                    dice_keypoints.append(kp)
+                else:
+                    card_keypoints.append(kp)
+            else:
+                card_keypoints.append(kp)
+        if board_points is not None:
+            card_keypoints = [
                 kp
-                for kp in self.keypoints
-                if is_inside_bounding_rect(kp.pt, dice_area_rect)
+                for kp in card_keypoints
+                if cv2.pointPolygonTest(board_points, kp.pt, False) < 0
             ]
+        self.dice_keypoints = dice_keypoints
+        self.card_keypoints = card_keypoints
 
     def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
-        return cv2.drawKeypoints(
+        frame = cv2.drawKeypoints(
             frame,
-            self.keypoints,
+            self.dice_keypoints,
             np.array([]),
             (0, 0, 255),
             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
         )
+        frame = cv2.drawKeypoints(
+            frame,
+            self.card_keypoints,
+            np.array([]),
+            (20, 255, 150),
+            cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+        )
+        return frame
 
     def get_context(self) -> dict:
-        return {"dice_dots": len(self.keypoints)}
+        return {
+            "dice_dots": self.dice_keypoints,
+            "card_dots": self.card_keypoints,
+        }
 
 
 class CardsAnalyzer(ThreadableAnalyzer):
@@ -130,21 +155,39 @@ class CardsAnalyzer(ThreadableAnalyzer):
         contour_filter: Callable[[list[np.ndarray]], list[np.ndarray]],
         threaded: bool = False,
     ) -> None:
-        self.contours = []
+        self.bounding_rects = []
         self.edge_detector = edge_detector
         self.contour_filter = contour_filter
         super().__init__(threaded)
 
-    def analyze_job(self, frame: np.ndarray, **kwargs) -> None:
+    def analyze_job(
+        self, frame: np.ndarray, board_points: np.ndarray | None = None, **kwargs
+    ) -> None:
         edges = self.edge_detector(frame)
-        contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        self.contours = self.contour_filter(contours)
+        contours, _ = cv2.findContours(
+            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        contours = self.contour_filter(contours)
+        self.bounding_rects = [cv2.boundingRect(c) for c in contours]
+        if board_points is not None:
+            self.bounding_rects = [
+                rect
+                for rect in self.bounding_rects
+                if cv2.pointPolygonTest(
+                    board_points,
+                    (rect[0] + rect[2] // 2, rect[1] + rect[3] // 2),
+                    False,
+                )
+                < 0
+            ]
 
     def mutate_frame(self, frame: np.ndarray) -> np.ndarray:
-        return cv2.drawContours(frame, self.contours, -1, (0, 255, 0), 3)
+        for rect in self.bounding_rects:
+            cv2.rectangle(frame, rect, (0, 255, 0), 3)
+        return frame
 
     def get_context(self) -> dict:
-        return {"cards": len(self.contours)}
+        return {"cards": len(self.bounding_rects)}
 
 
 class BlackPieceAnalyzer(ThreadableAnalyzer):

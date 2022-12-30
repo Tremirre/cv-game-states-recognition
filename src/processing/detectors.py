@@ -1,11 +1,25 @@
 import cv2
 
 
+def get_dots_detector() -> cv2.SimpleBlobDetector:
+    params = cv2.SimpleBlobDetector_Params()
+    params.filterByArea = True
+    params.minArea = 40
+    params.maxArea = 120
+    params.filterByCircularity = True
+    params.minCircularity = 0.8
+    params.filterByConvexity = True
+    params.minConvexity = 0.8
+    params.filterByInertia = True
+    params.minInertiaRatio = 0.8
+    return cv2.SimpleBlobDetector_create(params)
+
+
 def get_dice_detector() -> cv2.SimpleBlobDetector:
     params = cv2.SimpleBlobDetector_Params()
     params.filterByArea = True
-    params.minArea = 25
-    params.maxArea = 60
+    params.minArea = 30
+    params.maxArea = 120
     params.filterByCircularity = True
     params.minCircularity = 0.6
     params.filterByColor = True
