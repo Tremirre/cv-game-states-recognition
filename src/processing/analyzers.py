@@ -314,7 +314,7 @@ class WhitePieceAnalyzer(ThreadableAnalyzer):
         self,
         piece_detector: cv2.SimpleBlobDetector,
         binarizer: Callable[[np.ndarray], np.ndarray],
-        color_lower_threshold: int = 180,
+        color_lower_threshold: int = 160,
         threaded: bool = False,
     ) -> None:
         super().__init__(threaded=threaded)
